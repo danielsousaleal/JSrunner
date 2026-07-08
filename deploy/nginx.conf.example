@@ -1,0 +1,31 @@
+# Exemplo de configuração nginx para https://code.dns.lowhost.com.br
+# Copie para o seu servidor e ajuste root/ssl conforme necessário.
+
+server {
+    listen 443 ssl http2;
+    server_name code.dns.lowhost.com.br;
+
+    root /var/www/js-runner/out;
+    index index.html;
+
+    # Headers necessários para WASM + workers
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+    add_header Cross-Origin-Embedder-Policy "credentialless" always;
+    add_header Cross-Origin-Resource-Policy "same-origin" always;
+    add_header Access-Control-Allow-Origin "https://code.dns.lowhost.com.br" always;
+
+    location /wasm/ {
+        types { application/wasm wasm; }
+        add_header Cross-Origin-Resource-Policy "same-origin" always;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+
+    location /monaco/ {
+        add_header Cross-Origin-Resource-Policy "same-origin" always;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

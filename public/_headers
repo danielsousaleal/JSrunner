@@ -1,0 +1,18 @@
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: credentialless
+  Cross-Origin-Resource-Policy: same-origin
+  Access-Control-Allow-Origin: https://code.dns.lowhost.com.br
+
+/wasm/*
+  Cross-Origin-Resource-Policy: same-origin
+  Content-Type: application/wasm
+  Cache-Control: public, max-age=31536000, immutable
+
+/monaco/*
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+/_next/static/*
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable
