@@ -13,6 +13,22 @@ function isConsoleCall(expr: ts.Expression): expr is ts.CallExpression {
   );
 }
 
+function isFunctionLike(expr: ts.Expression): boolean {
+  return (
+    ts.isArrowFunction(expr) ||
+    ts.isFunctionExpression(expr) ||
+    ts.isClassExpression(expr)
+  );
+}
+
+function isMethodCall(expr: ts.Expression): expr is ts.CallExpression {
+  return (
+    ts.isCallExpression(expr) &&
+    (ts.isPropertyAccessExpression(expr.expression) ||
+      ts.isElementAccessExpression(expr.expression))
+  );
+}
+
 export function createQuokkaTransformer(): ts.TransformerFactory<ts.SourceFile> {
   return (context) => {
     const { factory } = context;
@@ -63,71 +79,18 @@ export function createQuokkaTransformer(): ts.TransformerFactory<ts.SourceFile> 
         ]);
       };
 
-      const prependStatement = (
-        statement: ts.Statement,
-        extra: ts.Statement
-      ): ts.Statement => {
-        if (ts.isBlock(statement)) {
-          return factory.updateBlock(statement, [extra, ...statement.statements]);
-        }
-        return factory.createBlock([extra, statement], true);
-      };
-
-      const visitInitializer = (
-        initializer: ts.ForInitializer
-      ): ts.ForInitializer => {
-        return (ts.visitNode(initializer, visit) as ts.ForInitializer) ?? initializer;
-      };
-
-      const instrumentForEach = (
-        node: ts.ForOfStatement | ts.ForInStatement
-      ): ts.Node => {
-        const initializer = node.initializer;
-        let name = "";
-        let line = getLine(node);
-        if (
-          ts.isVariableDeclarationList(initializer) &&
-          initializer.declarations[0] &&
-          ts.isIdentifier(initializer.declarations[0].name)
-        ) {
-          name = initializer.declarations[0].name.text;
-          line = getLine(initializer.declarations[0]);
-        } else if (ts.isIdentifier(initializer)) {
-          name = initializer.text;
-          line = getLine(initializer);
-        }
-
-        const visitedBody = visit(node.statement) as ts.Statement;
-        const body =
-          name.length > 0
-            ? prependStatement(
-                visitedBody,
-                factory.createExpressionStatement(
-                  wrap(factory.createIdentifier(name), line, name)
-                )
-              )
-            : visitedBody;
-
-        if (ts.isForOfStatement(node)) {
-          return factory.updateForOfStatement(
-            node,
-            node.awaitModifier,
-            visitInitializer(node.initializer),
-            visitExpr(node.expression),
-            body
-          );
-        }
-
-        return factory.updateForInStatement(
-          node,
-          visitInitializer(node.initializer),
-          visitExpr(node.expression),
-          body
-        );
-      };
-
       const visit = (node: ts.Node): ts.Node => {
         if (ts.isVariableDeclaration(node) && node.initializer) {
+          const initializer = visitExpr(node.initializer);
+          if (isFunctionLike(node.initializer)) {
+            return factory.updateVariableDeclaration(
+              node,
+              node.name,
+              node.exclamationToken,
+              node.type,
+              initializer
+            );
+          }
           const line = getLine(node);
           const name = ts.isIdentifier(node.name) ? node.name.text : "";
           return factory.updateVariableDeclaration(
@@ -135,7 +98,7 @@ export function createQuokkaTransformer(): ts.TransformerFactory<ts.SourceFile> 
             node.name,
             node.exclamationToken,
             node.type,
-            wrap(visitExpr(node.initializer), line, name)
+            wrap(initializer, line, name)
           );
         }
 
@@ -145,6 +108,13 @@ export function createQuokkaTransformer(): ts.TransformerFactory<ts.SourceFile> 
             return factory.updateExpressionStatement(
               node,
               wrapConsole(node.expression, line)
+            );
+          }
+
+          if (isMethodCall(node.expression)) {
+            return factory.updateExpressionStatement(
+              node,
+              visitExpr(node.expression)
             );
           }
 
@@ -171,14 +141,6 @@ export function createQuokkaTransformer(): ts.TransformerFactory<ts.SourceFile> 
           );
         }
 
-        if (ts.isThrowStatement(node)) {
-          const line = getLine(node);
-          return factory.updateThrowStatement(
-            node,
-            wrap(visitExpr(node.expression), line)
-          );
-        }
-
         if (ts.isArrowFunction(node) && !ts.isBlock(node.body)) {
           const line = getLine(node.body);
           return factory.updateArrowFunction(
@@ -199,10 +161,6 @@ export function createQuokkaTransformer(): ts.TransformerFactory<ts.SourceFile> 
             node.modifiers,
             wrap(visitExpr(node.expression), line)
           );
-        }
-
-        if (ts.isForOfStatement(node) || ts.isForInStatement(node)) {
-          return instrumentForEach(node);
         }
 
         return ts.visitEachChild(node, visit, context);

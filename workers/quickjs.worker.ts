@@ -109,7 +109,7 @@ function setupLiveReporter(context: QuickJSContext): LiveCollector {
       const isLogArgs = kind === "log" && Array.isArray(dumped);
       const preview = isLogArgs
         ? dumped.map((item) => stringifyLive(item, 120)).join(" ")
-        : stringifyLive(dumped, 80);
+        : stringifyLive(dumped, 42);
       const full = isLogArgs
         ? dumped.map((item) => stringifyLive(item, 500)).join(" ")
         : stringifyLive(dumped, 2000);
