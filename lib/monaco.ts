@@ -146,7 +146,8 @@ export const editorOptions: Monaco.editor.IStandaloneEditorConstructionOptions =
     guides: { bracketPairs: true, indentation: true },
     cursorBlinking: "smooth",
     cursorSmoothCaretAnimation: "on",
-    renderLineHighlight: "gutter",
+    renderLineHighlight: "all",
+    glyphMargin: true,
     smoothScrolling: true,
     // IntelliSense & snippets
     quickSuggestions: { other: true, comments: false, strings: true },
@@ -212,6 +213,17 @@ export function setupKeyboardShortcuts(
     ],
     run: () => {
       window.dispatchEvent(new CustomEvent("js-runner:focus-console"));
+    },
+  });
+
+  editor.addAction({
+    id: "toggle-live-preview",
+    label: "Toggle Live Values (Quokka)",
+    keybindings: [
+      monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyL,
+    ],
+    run: () => {
+      window.dispatchEvent(new CustomEvent("js-runner:toggle-live"));
     },
   });
 }

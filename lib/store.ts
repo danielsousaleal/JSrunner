@@ -11,12 +11,15 @@ import {
   type Workspace,
   type WorkspaceSettings,
 } from "./db";
+import type { LiveCoverage, LiveValue } from "./live-values";
 
 interface AppStore {
   workspace: Workspace | null;
   initialized: boolean;
   isRunning: boolean;
   dirtyFiles: Set<string>;
+  liveValues: LiveValue[];
+  liveCoverage: LiveCoverage[];
 
   initialize: () => Promise<void>;
   save: () => Promise<void>;
@@ -40,6 +43,8 @@ interface AppStore {
   removePackage: (name: string) => void;
 
   setRunning: (running: boolean) => void;
+  setLiveResults: (values: LiveValue[], coverage: LiveCoverage[]) => void;
+  clearLiveResults: () => void;
   replaceWorkspace: (workspace: Workspace) => void;
 }
 
@@ -56,6 +61,8 @@ export const useAppStore = create<AppStore>()(
     initialized: false,
     isRunning: false,
     dirtyFiles: new Set(),
+    liveValues: [],
+    liveCoverage: [],
 
     initialize: async () => {
       try {
@@ -333,6 +340,14 @@ export const useAppStore = create<AppStore>()(
     },
 
     setRunning: (running) => set({ isRunning: running }),
+
+    setLiveResults: (values, coverage) => {
+      set({ liveValues: values, liveCoverage: coverage });
+    },
+
+    clearLiveResults: () => {
+      set({ liveValues: [], liveCoverage: [] });
+    },
 
     replaceWorkspace: (workspace) => {
       set({ workspace, dirtyFiles: new Set(), initialized: true });

@@ -9,6 +9,7 @@ import { executionController } from "@/lib/execution";
 import { exportWorkspace } from "@/lib/export";
 import { importWorkspaceFromFile } from "@/lib/import";
 import { buildImportMapScript } from "@/lib/importmap";
+import { isExecutablePath } from "@/lib/live-values";
 import { useAppStore } from "@/lib/store";
 
 export function IDEPage() {
@@ -16,7 +17,10 @@ export function IDEPage() {
   const workspace = useAppStore((s) => s.workspace);
   const initialize = useAppStore((s) => s.initialize);
   const addConsoleEntry = useAppStore((s) => s.addConsoleEntry);
+  const clearConsole = useAppStore((s) => s.clearConsole);
   const setRunning = useAppStore((s) => s.setRunning);
+  const setLiveResults = useAppStore((s) => s.setLiveResults);
+  const clearLiveResults = useAppStore((s) => s.clearLiveResults);
   const replaceWorkspace = useAppStore((s) => s.replaceWorkspace);
   const save = useAppStore((s) => s.save);
   const updateSettings = useAppStore((s) => s.updateSettings);
@@ -40,32 +44,63 @@ export function IDEPage() {
     script.textContent = buildImportMapScript(workspace.importMap);
   }, [workspace?.importMap]);
 
-  const handleRun = useCallback(() => {
-    if (!workspace?.activeFile) return;
+  const handleRun = useCallback(
+    (options: { silent?: boolean } = {}) => {
+      if (!workspace?.activeFile) return;
+      if (!isExecutablePath(workspace.activeFile)) return;
 
-    setRunning(true);
+      const live = workspace.settings.livePreview ?? true;
+      const silent = options.silent === true;
 
-    const files: Record<string, string> = {};
-    for (const [path, file] of Object.entries(workspace.files)) {
-      files[path] = file.content;
-    }
+      if (!silent) setRunning(true);
+      if (silent) clearConsole();
+      if (!live) clearLiveResults();
 
-    executionController.run(
-      {
-        mainFile: workspace.activeFile,
-        files,
-        importMap: workspace.importMap,
-      },
-      (entry) => addConsoleEntry(entry),
-      () => setRunning(false)
-    );
-  }, [workspace, addConsoleEntry, setRunning]);
+      const files: Record<string, string> = {};
+      for (const [path, file] of Object.entries(workspace.files)) {
+        files[path] = file.content;
+      }
+
+      executionController.run(
+        {
+          mainFile: workspace.activeFile,
+          files,
+          importMap: workspace.importMap,
+        },
+        (entry) => {
+          if (silent && entry.type === "result") return;
+          addConsoleEntry(entry);
+        },
+        () => {
+          setRunning(false);
+        },
+        {
+          live,
+          silent,
+          onLiveValues: live ? setLiveResults : undefined,
+        }
+      );
+    },
+    [
+      workspace,
+      addConsoleEntry,
+      setRunning,
+      clearConsole,
+      clearLiveResults,
+      setLiveResults,
+    ]
+  );
 
   useEffect(() => {
     const onRun = () => handleRun();
     const onSave = () => void save();
     const onToggleSidebar = () => {
       updateSettings({ sidebarOpen: !workspace?.settings.sidebarOpen });
+    };
+    const onToggleLive = () => {
+      updateSettings({
+        livePreview: !(workspace?.settings.livePreview ?? true),
+      });
     };
     const onFocusConsole = () => {
       document
@@ -76,15 +111,23 @@ export function IDEPage() {
     window.addEventListener("js-runner:run", onRun);
     window.addEventListener("js-runner:save", onSave);
     window.addEventListener("js-runner:toggle-sidebar", onToggleSidebar);
+    window.addEventListener("js-runner:toggle-live", onToggleLive);
     window.addEventListener("js-runner:focus-console", onFocusConsole);
 
     return () => {
       window.removeEventListener("js-runner:run", onRun);
       window.removeEventListener("js-runner:save", onSave);
       window.removeEventListener("js-runner:toggle-sidebar", onToggleSidebar);
+      window.removeEventListener("js-runner:toggle-live", onToggleLive);
       window.removeEventListener("js-runner:focus-console", onFocusConsole);
     };
-  }, [handleRun, save, updateSettings, workspace?.settings.sidebarOpen]);
+  }, [
+    handleRun,
+    save,
+    updateSettings,
+    workspace?.settings.sidebarOpen,
+    workspace?.settings.livePreview,
+  ]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -118,6 +161,32 @@ export function IDEPage() {
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [updateSettings, workspace?.settings.zoom, save]);
+
+  const handleRunRef = useRef(handleRun);
+  handleRunRef.current = handleRun;
+
+  const contentFingerprint = workspace
+    ? Object.entries(workspace.files)
+        .map(([path, file]) => `${path}\0${file.content}`)
+        .join("\n")
+    : "";
+  const livePreview = workspace?.settings.livePreview ?? true;
+
+  useEffect(() => {
+    if (!livePreview) {
+      clearLiveResults();
+      return;
+    }
+    if (!workspace?.activeFile || !isExecutablePath(workspace.activeFile)) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      handleRunRef.current({ silent: true });
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [contentFingerprint, workspace?.activeFile, livePreview, clearLiveResults]);
 
   const handleDownload = () => {
     if (workspace) exportWorkspace(workspace);

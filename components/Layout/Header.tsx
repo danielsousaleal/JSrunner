@@ -8,6 +8,7 @@ import {
   Play,
   Plus,
   Upload,
+  Zap,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -33,6 +34,7 @@ export function Header({ onRun, onDownload, onImport }: HeaderProps) {
   const zoom = workspace?.settings.zoom ?? 1;
   const activeFile = workspace?.activeFile ?? "";
   const sidebarOpen = workspace?.settings.sidebarOpen ?? true;
+  const livePreview = workspace?.settings.livePreview ?? true;
 
   const adjustZoom = (delta: number) => {
     const next = Math.min(2, Math.max(0.5, Math.round((zoom + delta) * 10) / 10));
@@ -152,6 +154,29 @@ export function Header({ onRun, onDownload, onImport }: HeaderProps) {
             <Upload className="size-4" />
           </TooltipTrigger>
           <TooltipContent>Import workspace</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Toggle live values (Ctrl+Shift+L)"
+                className={
+                  livePreview
+                    ? "text-[#f0db4f] hover:text-[#f0db4f]"
+                    : undefined
+                }
+                onClick={() => updateSettings({ livePreview: !livePreview })}
+              />
+            }
+          >
+            <Zap className="size-4" fill={livePreview ? "currentColor" : "none"} />
+          </TooltipTrigger>
+          <TooltipContent>
+            {livePreview ? "Live values on" : "Live values off"} (Ctrl+Shift+L)
+          </TooltipContent>
         </Tooltip>
 
         <Tooltip>

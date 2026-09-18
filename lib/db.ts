@@ -28,6 +28,7 @@ export interface WorkspaceSettings {
   wordWrap: "on" | "off";
   minimap: boolean;
   autoSave: boolean;
+  livePreview: boolean;
   sidebarOpen: boolean;
   consoleHeight: number;
 }
@@ -167,19 +168,19 @@ export function getMonacoLanguage(path: string): string {
 
 export const DEFAULT_FILE_CONTENT = `// Welcome to JS Runner! 🚀
 //
-// Click "Run" (▶) or press Ctrl+Enter to execute this code.
-// Your output will appear in the console below.
+// Live values appear at the end of each line as you type.
+// Click "Run" (▶) or press Ctrl+Enter to execute in the console.
 
 function greet(name: string): string {
   return \`Hello, \${name}!\`;
 }
 
-console.log(greet("World"));
+const message = greet("World");
+console.log(message);
 
-// Try editing this file, then run again!
 const numbers = [1, 2, 3, 4, 5];
-const doubled = numbers.map(n => n * 2);
-console.log("Doubled:", doubled);
+const doubled = numbers.map((n) => n * 2);
+doubled;
 `;
 
 export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
@@ -189,6 +190,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   wordWrap: "on",
   minimap: false,
   autoSave: true,
+  livePreview: true,
   sidebarOpen: true,
   consoleHeight: 200,
 };

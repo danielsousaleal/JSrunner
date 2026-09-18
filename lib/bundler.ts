@@ -1,31 +1,42 @@
 import * as ts from "typescript";
 import { mergeImportMaps } from "./importmap";
+import { isExecutablePath } from "./live-values";
+import { createQuokkaTransformer } from "./quokka-instrument";
 
 const IMPORT_REGEX =
   /(?:import\s+(?:[\w*\s{},]*\s+from\s+)?|export\s+(?:\*|\{[^}]*\})\s+from\s+)['"]([^'"]+)['"]/g;
 
-export function transpileTypeScript(code: string, fileName: string): string {
+export function transpileTypeScript(
+  code: string,
+  fileName: string,
+  live = false
+): string {
   const ext = fileName.split(".").pop()?.toLowerCase();
-  if (ext !== "ts" && ext !== "tsx") return code;
+  const isTs = ext === "ts" || ext === "tsx";
+  if (!isTs && !live) return code;
+  if (live && !isExecutablePath(fileName)) return code;
 
   return ts.transpileModule(code, {
     fileName,
+    transformers: live ? { before: [createQuokkaTransformer()] } : undefined,
     compilerOptions: {
       target: ts.ScriptTarget.ESNext,
       module: ts.ModuleKind.ESNext,
       jsx: ts.JsxEmit.ReactJSX,
       strict: false,
       esModuleInterop: true,
+      allowJs: true,
     },
   }).outputText;
 }
 
 export function transpileAllFiles(
-  files: Record<string, string>
+  files: Record<string, string>,
+  live = false
 ): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [path, content] of Object.entries(files)) {
-    result[path] = transpileTypeScript(content, path);
+    result[path] = transpileTypeScript(content, path, live);
     const jsPath = path.replace(/\.tsx?$/, (m) =>
       m === ".tsx" ? ".jsx" : ".js"
     );

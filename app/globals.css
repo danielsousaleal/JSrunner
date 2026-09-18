@@ -198,3 +198,47 @@
 ::-webkit-scrollbar-track {
   background: var(--scrollbar-track);
 }
+
+.monaco-editor .quokka-inline-value,
+.monaco-editor .quokka-inline-log,
+.monaco-editor .quokka-inline-error {
+  display: inline-block;
+  margin-left: 1.5ch;
+  max-width: 48ch;
+  overflow: hidden;
+  font: inherit;
+  font-style: normal;
+  font-weight: 700;
+  white-space: pre;
+  text-overflow: ellipsis;
+  pointer-events: auto;
+  color: #3d7ead; /* quokka-like muted blue */
+}
+
+.monaco-editor .quokka-inline-error {
+  color: #f44747;
+}
+
+.monaco-editor .margin-view-overlays .cgmr.quokka-gutter-covered,
+.monaco-editor .glyph-margin-widgets .quokka-gutter-covered,
+.monaco-editor .quokka-gutter-covered {
+  background: #3fb950;
+  width: 4px !important;
+  margin-left: 4px;
+  border-radius: 2px;
+}
+
+.monaco-editor .quokka-gutter-uncovered {
+  background: #f85149;
+  width: 4px !important;
+  margin-left: 4px;
+  border-radius: 2px;
+  opacity: 0.7;
+}
+
+.monaco-editor .quokka-gutter-error {
+  background: #f44747;
+  width: 4px !important;
+  margin-left: 4px;
+  border-radius: 2px;
+}

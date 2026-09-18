@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BeforeMount, OnMount } from "@monaco-editor/react";
 import Editor from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
@@ -13,10 +13,17 @@ import {
 } from "@/lib/monaco";
 import { useAppStore } from "@/lib/store";
 import { FileTabs } from "./FileTabs";
+import { useLiveDecorations } from "./useLiveDecorations";
 
 export default function MonacoEditorPanel() {
   const workspace = useAppStore((s) => s.workspace);
   const updateFile = useAppStore((s) => s.updateFile);
+  const liveValues = useAppStore((s) => s.liveValues);
+  const liveCoverage = useAppStore((s) => s.liveCoverage);
+  const [editor, setEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(
+    null
+  );
+  const [monacoApi, setMonacoApi] = useState<typeof monaco | null>(null);
 
   useEffect(() => {
     configureMonacoWorkers();
@@ -28,14 +35,26 @@ export default function MonacoEditorPanel() {
     () => (activeFile ? getMonacoLanguage(activeFile) : "typescript"),
     [activeFile]
   );
+  const liveEnabled = workspace?.settings.livePreview ?? true;
 
-  const handleBeforeMount: BeforeMount = (monacoApi) => {
-    initMonacoTheme(monacoApi);
+  useLiveDecorations(
+    editor,
+    monacoApi,
+    activeFile,
+    liveValues,
+    liveCoverage,
+    liveEnabled
+  );
+
+  const handleBeforeMount: BeforeMount = (api) => {
+    initMonacoTheme(api);
   };
 
-  const handleMount: OnMount = (editorInstance, monacoApi) => {
-    (window as unknown as { monaco: typeof monaco }).monaco = monaco;
-    setupKeyboardShortcuts(editorInstance, monacoApi);
+  const handleMount: OnMount = (editorInstance, api) => {
+    (window as unknown as { monaco: typeof monaco }).monaco = api;
+    setupKeyboardShortcuts(editorInstance, api);
+    setEditor(editorInstance);
+    setMonacoApi(api);
     editorInstance.focus();
   };
 
@@ -69,6 +88,7 @@ export default function MonacoEditorPanel() {
             tabSize: settings?.tabSize ?? 2,
             wordWrap: settings?.wordWrap ?? "on",
             minimap: { enabled: settings?.minimap ?? false },
+            glyphMargin: liveEnabled,
           }}
           onMount={handleMount}
           onChange={(value) => {
