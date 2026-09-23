@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AssistantMessage } from "@/components/AI/AssistantMessage";
-import { ByokControls, currentByokTransport } from "@/components/AI/ByokControls";
+import { ByokTransportSync, currentByokTransport } from "@/components/AI/ByokControls";
 import { FileProposals } from "@/components/AI/FileProposals";
 import { executeAgentTool, type FileProposal } from "@/lib/agent-tools";
-import { getAiSettings, updateAiSettings, useAiSettings } from "@/lib/ai-settings";
+import { getAiSettings } from "@/lib/ai-settings";
 import { streamAssistant, type AgentToolCall, type AssistantTurn } from "@/lib/ai-client";
 import { loadAccount } from "@/lib/account-client";
 import { syncMonacoFile } from "@/lib/monaco-sync";
@@ -64,7 +64,6 @@ function AssistantPanel({
 }) {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [draft, setDraft] = useState("");
-  const aiSettings = useAiSettings();
   const [proposals, setProposals] = useState<FileProposal[]>([]);
   const [messages, setMessages] = useState<Bubble[]>([]);
   const [error, setError] = useState("");
@@ -268,12 +267,8 @@ function AssistantPanel({
           <X className="size-3.5" />
         </Button>
       </div>
-      <div ref={scrollerRef} className="min-h-0 flex-1 space-y-2 overflow-auto p-2">
-        {messages.length === 0 && (
-          <p className="text-xs text-[var(--vscode-fg-muted)]">
-            Ask about the code in the editor. Run still happens in your browser.
-          </p>
-        )}
+      <ByokTransportSync signedIn={signedIn === true} />
+      <div ref={scrollerRef} className="min-h-0 flex-1 space-y-3 overflow-auto p-3">
         {messages.map((message, index) =>
           message.role === "user" ? (
             <p key={index} className="whitespace-pre-wrap text-xs">
@@ -301,7 +296,6 @@ function AssistantPanel({
         }
         onRejectAll={() => setProposals([])}
       />
-      <ByokControls signedIn={signedIn === true} onTransport={() => undefined} />
       <form
         className="space-y-2 border-t border-[var(--vscode-border)] p-2"
         onSubmit={(event) => {
@@ -309,28 +303,7 @@ function AssistantPanel({
           void send();
         }}
       >
-        {signedIn === false && (
-          <p className="text-xs text-[var(--vscode-fg-muted)]">
-            Sign in to use the assistant. The editor still runs without an account.
-          </p>
-        )}
         {error && <p className="text-xs text-[var(--console-error)]">{error}</p>}
-        <label className="flex items-center gap-2 text-[11px] text-[var(--vscode-fg-muted)]">
-          <input
-            type="checkbox"
-            checked={aiSettings.includeActiveFile}
-            onChange={(event) => updateAiSettings({ includeActiveFile: event.target.checked })}
-          />
-          Include active file
-        </label>
-        <label className="flex items-center gap-2 text-[11px] text-[var(--vscode-fg-muted)]">
-          <input
-            type="checkbox"
-            checked={aiSettings.agent}
-            onChange={(event) => updateAiSettings({ agent: event.target.checked })}
-          />
-          Agent. File changes stay as a preview until you Apply.
-        </label>
         <textarea
           value={draft}
           onChange={(event) => setDraft(event.target.value)}

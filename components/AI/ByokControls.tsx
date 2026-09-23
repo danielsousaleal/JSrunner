@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { loadAccount } from "@/lib/account-client";
 import {
   currentSessionKey,
@@ -53,13 +53,50 @@ function useByokView(): ByokView {
   );
 }
 
-export function ByokControls({
-  signedIn,
-  onTransport,
-}: {
-  signedIn: boolean;
-  onTransport: (choice: ByokTransport) => void;
-}) {
+export function ByokTransportSync({ signedIn }: { signedIn: boolean }) {
+  const { provider, place } = useByokView();
+
+  useEffect(() => {
+    if (!signedIn) {
+      publishByokTransport({ provider: "platform" });
+      return;
+    }
+    void loadAccount()
+      .then((profile) => {
+        let next = byokView;
+        if (profile?.groqKeyLast4) next = { ...next, place: "account" };
+        if (profile?.providerMode === "byok") next = { ...next, provider: "byok" };
+        emitByokView(next);
+      })
+      .catch(() => undefined);
+  }, [signedIn]);
+
+  useEffect(() => {
+    if (provider === "platform") {
+      publishByokTransport({ provider: "platform" });
+      return;
+    }
+    if (place === "account") {
+      publishByokTransport({ provider: "byok", keySource: "account" });
+      return;
+    }
+    if (place === "device") {
+      void readDeviceKey().then((key) =>
+        publishByokTransport({ provider: "byok", keySource: "request", apiKey: key ?? undefined })
+      );
+      return;
+    }
+    publishByokTransport({
+      provider: "byok",
+      keySource: "request",
+      apiKey: currentSessionKey() ?? undefined,
+    });
+  }, [provider, place]);
+
+  return null;
+}
+
+export function ByokControls({ signedIn }: { signedIn: boolean }) {
   const { provider, place } = useByokView();
   const setProvider = (next: ByokView["provider"]) => emitByokView({ ...byokView, provider: next });
   const setPlace = (next: ByokPlace) => emitByokView({ ...byokView, place: next });
@@ -70,14 +107,9 @@ export function ByokControls({
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const notify = useRef(onTransport);
-  notify.current = onTransport;
 
   useEffect(() => {
-    if (!signedIn) {
-      notify.current({ provider: "platform" });
-      return;
-    }
+    if (!signedIn) return;
     void Promise.all([loadAccount(), readDeviceKey()])
       .then(([profile, deviceKey]) => {
         if (deviceKey) setDeviceLast4(deviceKey.slice(-4));
@@ -89,35 +121,6 @@ export function ByokControls({
       })
       .catch(() => undefined);
   }, [signedIn]);
-
-  useEffect(() => {
-    if (provider === "platform") {
-      publishByokTransport({ provider: "platform" });
-      notify.current({ provider: "platform" });
-      return;
-    }
-    if (place === "account") {
-      const choice = { provider: "byok" as const, keySource: "account" as const };
-      publishByokTransport(choice);
-      notify.current(choice);
-      return;
-    }
-    if (place === "device") {
-      void readDeviceKey().then((key) => {
-        const choice = { provider: "byok" as const, keySource: "request" as const, apiKey: key ?? undefined };
-        publishByokTransport(choice);
-        notify.current(choice);
-      });
-      return;
-    }
-    const choice = {
-      provider: "byok" as const,
-      keySource: "request" as const,
-      apiKey: currentSessionKey() ?? undefined,
-    };
-    publishByokTransport(choice);
-    notify.current(choice);
-  }, [provider, place, sessionLast4, deviceLast4, accountLast4]);
 
   const activeLast4 =
     place === "session" ? sessionLast4 : place === "device" ? deviceLast4 : accountLast4;
