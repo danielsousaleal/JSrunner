@@ -19,7 +19,7 @@ Static export to /out
     ↓
 Deploy to Vercel CDN
     ↓
-https://js-runner.vercel.app
+https://j-srunner.vercel.app
 ```
 
 ---

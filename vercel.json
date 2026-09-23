@@ -21,7 +21,7 @@
         },
         {
           "key": "Access-Control-Allow-Origin",
-          "value": "https://js-runner.vercel.app"
+          "value": "https://j-srunner.vercel.app"
         }
       ]
     },
