@@ -27,11 +27,41 @@ interface ByokView {
 
 let byokView: ByokView = { provider: "platform", place: "session" };
 let publishedTransport: ByokTransport = { provider: "platform" };
+let choiceLocked = false;
 const byokListeners = new Set<() => void>();
 
-function emitByokView(next: ByokView) {
+function emitByokView(next: ByokView, fromUser = false) {
+  if (fromUser) choiceLocked = true;
   byokView = next;
   byokListeners.forEach((listener) => listener());
+}
+
+async function materialize(view: ByokView): Promise<ByokTransport> {
+  if (view.provider !== "byok") return { provider: "platform" };
+  if (view.place === "device") {
+    const key = await readDeviceKey();
+    if (key) return { provider: "byok", keySource: "request", apiKey: key };
+  }
+  if (view.place === "session") {
+    const key = currentSessionKey();
+    if (key) return { provider: "byok", keySource: "request", apiKey: key };
+  }
+  return { provider: "byok", keySource: "account" };
+}
+
+export async function transportForSend(): Promise<ByokTransport> {
+  if (!choiceLocked) {
+    const profile = await loadAccount().catch(() => null);
+    if (profile && !choiceLocked) {
+      const next: ByokView = { ...byokView };
+      if (profile.groqKeyLast4) next.place = "account";
+      if (profile.providerMode === "byok") next.provider = "byok";
+      emitByokView(next);
+    }
+  }
+  const choice = await materialize(byokView);
+  publishByokTransport(choice);
+  return choice;
 }
 
 export function currentByokTransport(): ByokTransport {
@@ -53,53 +83,43 @@ function useByokView(): ByokView {
   );
 }
 
-export function ByokTransportSync({ signedIn }: { signedIn: boolean }) {
+export function ByokTransportSync({ signedIn }: { signedIn: boolean | null }) {
   const { provider, place } = useByokView();
 
   useEffect(() => {
-    if (!signedIn) {
-      publishByokTransport({ provider: "platform" });
-      return;
-    }
+    if (signedIn !== true || choiceLocked) return;
+    let active = true;
     void loadAccount()
       .then((profile) => {
-        let next = byokView;
-        if (profile?.groqKeyLast4) next = { ...next, place: "account" };
-        if (profile?.providerMode === "byok") next = { ...next, provider: "byok" };
+        if (!active || !profile || choiceLocked) return;
+        const next: ByokView = { ...byokView };
+        if (profile.groqKeyLast4) next.place = "account";
+        if (profile.providerMode === "byok") next.provider = "byok";
         emitByokView(next);
       })
       .catch(() => undefined);
+    return () => {
+      active = false;
+    };
   }, [signedIn]);
 
   useEffect(() => {
-    if (provider === "platform") {
+    if (signedIn === false) {
       publishByokTransport({ provider: "platform" });
       return;
     }
-    if (place === "account") {
-      publishByokTransport({ provider: "byok", keySource: "account" });
-      return;
-    }
-    if (place === "device") {
-      void readDeviceKey().then((key) =>
-        publishByokTransport({ provider: "byok", keySource: "request", apiKey: key ?? undefined })
-      );
-      return;
-    }
-    publishByokTransport({
-      provider: "byok",
-      keySource: "request",
-      apiKey: currentSessionKey() ?? undefined,
-    });
-  }, [provider, place]);
+    if (signedIn !== true) return;
+    void materialize({ provider, place }).then(publishByokTransport);
+  }, [signedIn, provider, place]);
 
   return null;
 }
 
 export function ByokControls({ signedIn }: { signedIn: boolean }) {
   const { provider, place } = useByokView();
-  const setProvider = (next: ByokView["provider"]) => emitByokView({ ...byokView, provider: next });
-  const setPlace = (next: ByokPlace) => emitByokView({ ...byokView, place: next });
+  const setProvider = (next: ByokView["provider"]) =>
+    emitByokView({ ...byokView, provider: next }, true);
+  const setPlace = (next: ByokPlace) => emitByokView({ ...byokView, place: next }, true);
   const [draft, setDraft] = useState("");
   const [accountLast4, setAccountLast4] = useState<string | null>(null);
   const [deviceLast4, setDeviceLast4] = useState<string | null>(null);
@@ -110,16 +130,22 @@ export function ByokControls({ signedIn }: { signedIn: boolean }) {
 
   useEffect(() => {
     if (!signedIn) return;
+    let active = true;
     void Promise.all([loadAccount(), readDeviceKey()])
       .then(([profile, deviceKey]) => {
+        if (!active) return;
         if (deviceKey) setDeviceLast4(deviceKey.slice(-4));
-        if (profile?.groqKeyLast4) {
-          setAccountLast4(profile.groqKeyLast4);
-          setPlace("account");
-        }
-        if (profile?.providerMode === "byok") setProvider("byok");
+        if (profile?.groqKeyLast4) setAccountLast4(profile.groqKeyLast4);
+        if (choiceLocked) return;
+        const next: ByokView = { ...byokView };
+        if (profile?.groqKeyLast4) next.place = "account";
+        if (profile?.providerMode === "byok") next.provider = "byok";
+        emitByokView(next);
       })
       .catch(() => undefined);
+    return () => {
+      active = false;
+    };
   }, [signedIn]);
 
   const activeLast4 =
@@ -189,7 +215,9 @@ export function ByokControls({ signedIn }: { signedIn: boolean }) {
           className={`rounded px-2 py-1 text-[11px] ${provider === "platform" ? "bg-[var(--vscode-blue)] text-white" : "text-[var(--vscode-fg-muted)]"}`}
           onClick={() => {
             setProvider("platform");
-            void setProviderMode("platform").catch(() => undefined);
+            void setProviderMode("platform").catch((caught) => {
+              setError(caught instanceof Error ? caught.message : "Could not switch to JSRunner AI");
+            });
           }}
         >
           JSRunner AI
@@ -197,7 +225,19 @@ export function ByokControls({ signedIn }: { signedIn: boolean }) {
         <button
           type="button"
           className={`rounded px-2 py-1 text-[11px] ${provider === "byok" ? "bg-[var(--vscode-blue)] text-white" : "text-[var(--vscode-fg-muted)]"}`}
-          onClick={() => setProvider("byok")}
+          onClick={() => {
+            emitByokView(
+              {
+                ...byokView,
+                provider: "byok",
+                place: accountLast4 ? "account" : byokView.place,
+              },
+              true
+            );
+            void setProviderMode("byok").catch((caught) => {
+              setError(caught instanceof Error ? caught.message : "Could not switch to your key");
+            });
+          }}
         >
           My Groq key
         </button>

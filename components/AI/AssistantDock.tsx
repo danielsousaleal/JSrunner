@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AssistantMessage } from "@/components/AI/AssistantMessage";
-import { ByokTransportSync, currentByokTransport } from "@/components/AI/ByokControls";
+import { ByokTransportSync, transportForSend } from "@/components/AI/ByokControls";
 import { FileProposals } from "@/components/AI/FileProposals";
 import { executeAgentTool, type FileProposal } from "@/lib/agent-tools";
 import { getAiSettings } from "@/lib/ai-settings";
@@ -140,7 +140,7 @@ function AssistantPanel({
           },
           controller.signal,
           {
-            ...currentByokTransport(),
+            ...(await transportForSend()),
             agent: ai.agent,
             temperature: ai.temperature,
             topP: ai.topP,
@@ -267,7 +267,7 @@ function AssistantPanel({
           <X className="size-3.5" />
         </Button>
       </div>
-      <ByokTransportSync signedIn={signedIn === true} />
+        <ByokTransportSync signedIn={signedIn} />
       <div ref={scrollerRef} className="min-h-0 flex-1 space-y-3 overflow-auto p-3">
         {messages.map((message, index) =>
           message.role === "user" ? (
