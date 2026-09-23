@@ -147,7 +147,7 @@ export function SettingsButton() {
               Restore defaults
             </Button>
             {signedIn ? (
-              <ByokControls signedIn onTransport={() => undefined} />
+              <ByokControls signedIn />
             ) : (
               <p className="text-xs text-[var(--vscode-fg-muted)]">
                 Sign in to choose JSRunner AI or your own Groq key.
