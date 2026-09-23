@@ -21,7 +21,7 @@
         },
         {
           "key": "Access-Control-Allow-Origin",
-          "value": "https://code.dns.lowhost.com.br"
+          "value": "https://js-runner.vercel.app"
         }
       ]
     },

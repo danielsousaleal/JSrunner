@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   output: "export",
   images: { unoptimized: true },
   turbopack: {},
-  allowedDevOrigins: ALLOWED_HOSTNAMES,
+  allowedDevOrigins: [...ALLOWED_HOSTNAMES],
 
   experimental: {
     optimizePackageImports: [

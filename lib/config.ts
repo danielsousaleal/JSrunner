@@ -7,10 +7,11 @@ export const ALLOWED_DOMAINS = [
   "http://localhost:4173",
   "http://127.0.0.1:3000",
   "http://127.0.0.1:4173",
+  "https://js-runner.vercel.app",
   "https://code.dns.lowhost.com.br",
 ] as const;
 
-export const PRIMARY_DOMAIN = "https://code.dns.lowhost.com.br";
+export const PRIMARY_DOMAIN = "https://js-runner.vercel.app";
 
 /** Hostnames sem protocolo (para allowedDevOrigins do Next.js) */
 export const ALLOWED_HOSTNAMES = ALLOWED_DOMAINS.map((url) => {

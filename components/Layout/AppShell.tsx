@@ -1,5 +1,6 @@
 "use client";
 
+import { AssistantDock } from "@/components/AI/AssistantDock";
 import { CollapsibleSidebar } from "./CollapsibleSidebar";
 import { Header } from "./Header";
 import { ResizableSplit } from "./ResizableSplit";
@@ -49,7 +50,12 @@ export function AppShell({
           } as React.CSSProperties
         }
       >
-        <div className="editor-container h-full w-full">{editor}</div>
+        <div className="flex h-full min-h-0 min-w-0">
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+            <div className="editor-container h-full w-full">{editor}</div>
+          </div>
+          <AssistantDock />
+        </div>
       </main>
 
       <ResizableSplit

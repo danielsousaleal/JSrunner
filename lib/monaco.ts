@@ -217,6 +217,17 @@ export function setupKeyboardShortcuts(
   });
 
   editor.addAction({
+    id: "toggle-assistant",
+    label: "Toggle Assistant",
+    keybindings: [
+      monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyB,
+    ],
+    run: () => {
+      window.dispatchEvent(new CustomEvent("js-runner:toggle-ai"));
+    },
+  });
+
+  editor.addAction({
     id: "toggle-live-preview",
     label: "Toggle Live Values (Quokka)",
     keybindings: [

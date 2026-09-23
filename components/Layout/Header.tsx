@@ -7,11 +7,13 @@ import {
   Minus,
   Play,
   Plus,
+  Sparkles,
   Upload,
   Zap,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import { AccountButton } from "@/components/Account/AccountButton";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -53,6 +55,7 @@ export function Header({ onRun, onDownload, onImport }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-1">
+        <AccountButton />
         <Tooltip>
           <TooltipTrigger
             render={
@@ -177,6 +180,22 @@ export function Header({ onRun, onDownload, onImport }: HeaderProps) {
           <TooltipContent>
             {livePreview ? "Live values on" : "Live values off"} (Ctrl+Shift+L)
           </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Toggle assistant (Ctrl+Alt+B)"
+                onClick={() => window.dispatchEvent(new CustomEvent("js-runner:toggle-ai"))}
+              />
+            }
+          >
+            <Sparkles className="size-4" />
+          </TooltipTrigger>
+          <TooltipContent>Assistant (Ctrl+Alt+B)</TooltipContent>
         </Tooltip>
 
         <Tooltip>
