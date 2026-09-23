@@ -3,11 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ByokControls, type ByokTransport } from "@/components/AI/ByokControls";
+import { AssistantMessage } from "@/components/AI/AssistantMessage";
+import { ByokControls, currentByokTransport } from "@/components/AI/ByokControls";
 import { FileProposals } from "@/components/AI/FileProposals";
 import { executeAgentTool, type FileProposal } from "@/lib/agent-tools";
+import { getAiSettings, updateAiSettings, useAiSettings } from "@/lib/ai-settings";
 import { streamAssistant, type AgentToolCall, type AssistantTurn } from "@/lib/ai-client";
 import { loadAccount } from "@/lib/account-client";
+import { syncMonacoFile } from "@/lib/monaco-sync";
 import { useAppStore } from "@/lib/store";
 
 interface Bubble {
@@ -61,15 +64,13 @@ function AssistantPanel({
 }) {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [draft, setDraft] = useState("");
-  const [includeFile, setIncludeFile] = useState(false);
-  const [agent, setAgent] = useState(false);
+  const aiSettings = useAiSettings();
   const [proposals, setProposals] = useState<FileProposal[]>([]);
   const [messages, setMessages] = useState<Bubble[]>([]);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const transportRef = useRef<ByokTransport>({ provider: "platform" });
   const historyRef = useRef<AssistantTurn[]>([]);
 
   useEffect(() => {
@@ -109,7 +110,8 @@ function AssistantPanel({
       if (!file) continue;
       chunks.push(`@${path}\n${file.content.slice(0, 4_000)}`);
     }
-    if (includeFile && currentWorkspace?.activeFile && !mentions.includes(currentWorkspace.activeFile)) {
+    const ai = getAiSettings();
+    if (ai.includeActiveFile && currentWorkspace?.activeFile && !mentions.includes(currentWorkspace.activeFile)) {
       const file = currentWorkspace.files[currentWorkspace.activeFile];
       if (file) chunks.unshift(`Active file ${currentWorkspace.activeFile}:\n${file.content.slice(0, 8_000)}`);
     }
@@ -127,7 +129,7 @@ function AssistantPanel({
     abortRef.current = controller;
 
     try {
-      for (let step = 0; step < (agent ? 4 : 1); step += 1) {
+      for (let step = 0; step < (ai.agent ? 4 : 1); step += 1) {
         if (controller.signal.aborted) return;
         let assistantText = "";
         const calls = new Map<number, AgentToolCall>();
@@ -139,8 +141,12 @@ function AssistantPanel({
           },
           controller.signal,
           {
-            ...transportRef.current,
-            agent,
+            ...currentByokTransport(),
+            agent: ai.agent,
+            temperature: ai.temperature,
+            topP: ai.topP,
+            reasoningEffort: ai.reasoningEffort,
+            maxCompletionTokens: ai.maxCompletionTokens,
             onTool: (tool) => {
               const current = calls.get(tool.index) ?? { id: "", name: "", arguments: "" };
               if (tool.id) current.id = tool.id;
@@ -151,7 +157,7 @@ function AssistantPanel({
           }
         );
         const finished = [...calls.values()].filter((call) => call.id && call.name);
-        if (!agent || finished.length === 0) {
+        if (!ai.agent || finished.length === 0) {
           if (assistantText.trim()) {
             historyRef.current = [
               ...historyRef.current,
@@ -215,9 +221,19 @@ function AssistantPanel({
 
   const applyProposal = (proposal: FileProposal) => {
     const store = useAppStore.getState();
-    if (proposal.kind === "delete") store.deleteFile(proposal.path);
-    else if (proposal.kind === "create") store.addFile(proposal.path, proposal.after);
-    else store.updateFile(proposal.path, proposal.after);
+    if (proposal.kind === "delete") {
+      store.deleteFile(proposal.path);
+      syncMonacoFile(proposal.path, null);
+    } else if (!store.workspace?.files[proposal.path]) {
+      store.addFile(proposal.path, proposal.after);
+      syncMonacoFile(proposal.path, proposal.after);
+      void useAppStore.getState().save();
+    } else {
+      store.updateFile(proposal.path, proposal.after);
+      store.openTab(proposal.path);
+      syncMonacoFile(proposal.path, proposal.after);
+      void useAppStore.getState().save();
+    }
     setProposals((current) => current.filter((item) => item.id !== proposal.id));
   };
 
@@ -258,32 +274,34 @@ function AssistantPanel({
             Ask about the code in the editor. Run still happens in your browser.
           </p>
         )}
-        {messages.map((message, index) => (
-          <p
-            key={index}
-            className={
-              message.role === "user"
-                ? "whitespace-pre-wrap text-xs"
-                : "whitespace-pre-wrap text-xs text-[var(--vscode-fg-muted)]"
-            }
-          >
-            {message.display || message.content || (pending ? "…" : "")}
-          </p>
-        ))}
+        {messages.map((message, index) =>
+          message.role === "user" ? (
+            <p key={index} className="whitespace-pre-wrap text-xs">
+              {message.display || message.content}
+            </p>
+          ) : (
+            <div key={index}>
+              {message.content ? (
+                <AssistantMessage text={message.content} />
+              ) : (
+                pending && <p className="text-xs text-[var(--vscode-fg-muted)]">…</p>
+              )}
+            </div>
+          )
+        )}
       </div>
       <FileProposals
         proposals={proposals}
         onApply={applyProposal}
+        onApplyAll={() => {
+          for (const proposal of proposals) applyProposal(proposal);
+        }}
         onReject={(proposal) =>
           setProposals((current) => current.filter((item) => item.id !== proposal.id))
         }
+        onRejectAll={() => setProposals([])}
       />
-      <ByokControls
-        signedIn={signedIn === true}
-        onTransport={(choice) => {
-          transportRef.current = choice;
-        }}
-      />
+      <ByokControls signedIn={signedIn === true} onTransport={() => undefined} />
       <form
         className="space-y-2 border-t border-[var(--vscode-border)] p-2"
         onSubmit={(event) => {
@@ -300,16 +318,16 @@ function AssistantPanel({
         <label className="flex items-center gap-2 text-[11px] text-[var(--vscode-fg-muted)]">
           <input
             type="checkbox"
-            checked={includeFile}
-            onChange={(event) => setIncludeFile(event.target.checked)}
+            checked={aiSettings.includeActiveFile}
+            onChange={(event) => updateAiSettings({ includeActiveFile: event.target.checked })}
           />
           Include active file
         </label>
         <label className="flex items-center gap-2 text-[11px] text-[var(--vscode-fg-muted)]">
           <input
             type="checkbox"
-            checked={agent}
-            onChange={(event) => setAgent(event.target.checked)}
+            checked={aiSettings.agent}
+            onChange={(event) => updateAiSettings({ agent: event.target.checked })}
           />
           Agent. File changes stay as a preview until you Apply.
         </label>

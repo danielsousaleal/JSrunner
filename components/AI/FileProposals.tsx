@@ -15,16 +15,30 @@ function languageFor(path: string): string {
 export function FileProposals({
   proposals,
   onApply,
+  onApplyAll,
   onReject,
+  onRejectAll,
 }: {
   proposals: FileProposal[];
   onApply: (proposal: FileProposal) => void;
+  onApplyAll: () => void;
   onReject: (proposal: FileProposal) => void;
+  onRejectAll: () => void;
 }) {
   if (proposals.length === 0) return null;
 
   return (
     <div className="space-y-2 border-t border-[var(--vscode-border)] p-2">
+      {proposals.length > 1 && (
+        <div className="flex gap-2">
+          <Button type="button" size="sm" onClick={onApplyAll}>
+            Apply all
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={onRejectAll}>
+            Reject all
+          </Button>
+        </div>
+      )}
       {proposals.map((proposal) => (
         <div key={proposal.id} className="space-y-1">
           <p className="text-[11px]">
@@ -39,6 +53,8 @@ export function FileProposals({
               height="160px"
               original={proposal.before}
               modified={proposal.after}
+              originalModelPath={`proposal/${proposal.id}/before`}
+              modifiedModelPath={`proposal/${proposal.id}/after`}
               language={languageFor(proposal.path)}
               theme="vs-dark"
               options={{
@@ -49,7 +65,7 @@ export function FileProposals({
               }}
             />
           </div>
-          <div className="flex gap-2">
+          <div className="relative z-10 flex gap-2">
             <Button type="button" size="sm" onClick={() => onApply(proposal)}>
               Apply
             </Button>

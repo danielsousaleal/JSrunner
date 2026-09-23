@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { loadAccount } from "@/lib/account-client";
 import {
   currentSessionKey,
@@ -20,6 +20,39 @@ export interface ByokTransport {
   keySource?: "account" | "request";
 }
 
+interface ByokView {
+  provider: "platform" | "byok";
+  place: ByokPlace;
+}
+
+let byokView: ByokView = { provider: "platform", place: "session" };
+let publishedTransport: ByokTransport = { provider: "platform" };
+const byokListeners = new Set<() => void>();
+
+function emitByokView(next: ByokView) {
+  byokView = next;
+  byokListeners.forEach((listener) => listener());
+}
+
+export function currentByokTransport(): ByokTransport {
+  return publishedTransport;
+}
+
+function publishByokTransport(choice: ByokTransport) {
+  publishedTransport = choice;
+}
+
+function useByokView(): ByokView {
+  return useSyncExternalStore(
+    (listener) => {
+      byokListeners.add(listener);
+      return () => byokListeners.delete(listener);
+    },
+    () => byokView,
+    () => byokView
+  );
+}
+
 export function ByokControls({
   signedIn,
   onTransport,
@@ -27,8 +60,9 @@ export function ByokControls({
   signedIn: boolean;
   onTransport: (choice: ByokTransport) => void;
 }) {
-  const [provider, setProvider] = useState<"platform" | "byok">("platform");
-  const [place, setPlace] = useState<ByokPlace>("session");
+  const { provider, place } = useByokView();
+  const setProvider = (next: ByokView["provider"]) => emitByokView({ ...byokView, provider: next });
+  const setPlace = (next: ByokPlace) => emitByokView({ ...byokView, place: next });
   const [draft, setDraft] = useState("");
   const [accountLast4, setAccountLast4] = useState<string | null>(null);
   const [deviceLast4, setDeviceLast4] = useState<string | null>(null);
@@ -58,24 +92,31 @@ export function ByokControls({
 
   useEffect(() => {
     if (provider === "platform") {
+      publishByokTransport({ provider: "platform" });
       notify.current({ provider: "platform" });
       return;
     }
     if (place === "account") {
-      notify.current({ provider: "byok", keySource: "account" });
+      const choice = { provider: "byok" as const, keySource: "account" as const };
+      publishByokTransport(choice);
+      notify.current(choice);
       return;
     }
     if (place === "device") {
-      void readDeviceKey().then((key) =>
-        notify.current({ provider: "byok", keySource: "request", apiKey: key ?? undefined })
-      );
+      void readDeviceKey().then((key) => {
+        const choice = { provider: "byok" as const, keySource: "request" as const, apiKey: key ?? undefined };
+        publishByokTransport(choice);
+        notify.current(choice);
+      });
       return;
     }
-    notify.current({
-      provider: "byok",
-      keySource: "request",
+    const choice = {
+      provider: "byok" as const,
+      keySource: "request" as const,
       apiKey: currentSessionKey() ?? undefined,
-    });
+    };
+    publishByokTransport(choice);
+    notify.current(choice);
   }, [provider, place, sessionLast4, deviceLast4, accountLast4]);
 
   const activeLast4 =
