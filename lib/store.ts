@@ -34,6 +34,7 @@ interface AppStore {
   markFileClean: (path: string) => void;
 
   updateSettings: (settings: Partial<WorkspaceSettings>) => void;
+  setName: (name: string) => void;
 
   addConsoleEntry: (entry: ConsoleEntry) => void;
   clearConsole: () => void;
@@ -273,6 +274,14 @@ export const useAppStore = create<AppStore>()(
           settings: { ...workspace.settings, ...settings },
         }),
       });
+    },
+
+    setName: (name) => {
+      const { workspace } = get();
+      if (!workspace) return;
+      const next = name.trim().slice(0, 80);
+      if (!next || next === workspace.name) return;
+      set({ workspace: updateWorkspace(workspace, { name: next }) });
     },
 
     addConsoleEntry: (entry) => {

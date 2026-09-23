@@ -17,6 +17,15 @@ function matches(modelPath: string, filePath: string): boolean {
   return path === filePath;
 }
 
+export function syncMonacoWorkspace(next: Record<string, string>, previous: string[]): void {
+  for (const path of previous) {
+    if (!(path in next)) syncMonacoFile(path, null);
+  }
+  for (const [path, content] of Object.entries(next)) {
+    syncMonacoFile(path, content);
+  }
+}
+
 export function syncMonacoFile(path: string, content: string | null): void {
   for (const model of models()) {
     if (!matches(model.uri.path, path)) continue;

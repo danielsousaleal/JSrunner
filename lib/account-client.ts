@@ -54,6 +54,10 @@ function writeSession(session: AuthSession): StoredSession {
   return stored;
 }
 
+export function hasAccountSession(): boolean {
+  return readSession() !== null;
+}
+
 export function clearAccountSession(): void {
   window.localStorage.removeItem(STORAGE_KEY);
 }
