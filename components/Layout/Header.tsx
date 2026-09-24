@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { AccountButton } from "@/components/Account/AccountButton";
 import { CloudButton } from "@/components/Cloud/CloudButton";
+import { SaveButton } from "@/components/Cloud/SaveButton";
 import { SettingsButton } from "@/components/Settings/SettingsDialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +59,7 @@ export function Header({ onRun, onDownload, onImport }: HeaderProps) {
 
       <div className="flex items-center gap-1">
         <AccountButton />
+        <SaveButton />
         <CloudButton />
         <SettingsButton />
         <Tooltip>

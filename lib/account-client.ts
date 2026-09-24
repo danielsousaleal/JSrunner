@@ -23,6 +23,12 @@ interface AuthSession {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  id?: string;
+  email?: string;
+  emailVerified?: boolean;
+  username?: string | null;
+  role?: string;
+  aiEnabled?: boolean;
 }
 
 function apiUrl(path: string): string {
@@ -92,6 +98,23 @@ export async function authorizedAccount(
   });
 }
 
+function profileFrom(session: AuthSession, email: string): AccountProfile | null {
+  if (!session.id) return null;
+  return {
+    id: session.id,
+    email: session.email || email,
+    emailVerified: session.emailVerified ?? false,
+    username: session.username ?? null,
+    role: session.role ?? "free",
+    aiEnabled: session.aiEnabled ?? true,
+  };
+}
+
+export function warmAccountService(): void {
+  if (typeof window === "undefined") return;
+  void fetch(apiUrl("/health")).catch(() => undefined);
+}
+
 export async function loginAccount(
   email: string,
   password: string
@@ -104,9 +127,7 @@ export async function loginAccount(
   if (!response.ok) throw new Error(await parseError(response));
   const session = (await response.json()) as AuthSession;
   writeSession(session);
-  const profile = await loadAccount();
-  if (!profile) throw new Error("Sign in required");
-  return profile;
+  return profileFrom(session, email.trim()) ?? (await requiredProfile());
 }
 
 export async function registerAccount(
@@ -119,7 +140,18 @@ export async function registerAccount(
     body: JSON.stringify({ email, password }),
   });
   if (!response.ok) throw new Error(await parseError(response));
-  return loginAccount(email, password);
+  const session = (await response.json()) as AuthSession;
+  if (!session.accessToken || !session.refreshToken) {
+    return loginAccount(email, password);
+  }
+  writeSession(session);
+  return profileFrom(session, email.trim()) ?? (await requiredProfile());
+}
+
+async function requiredProfile(): Promise<AccountProfile> {
+  const profile = await loadAccount();
+  if (!profile) throw new Error("Sign in required");
+  return profile;
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {

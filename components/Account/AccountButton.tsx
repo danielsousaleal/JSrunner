@@ -17,6 +17,7 @@ import {
   registerAccount,
   requestPasswordReset,
   signOutAccount,
+  warmAccountService,
   type AccountProfile,
 } from "@/lib/account-client";
 
@@ -33,6 +34,7 @@ export function AccountButton() {
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
+    warmAccountService();
     void loadAccount()
       .then(setProfile)
       .catch(() => setProfile(null));
