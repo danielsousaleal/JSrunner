@@ -14,13 +14,16 @@ export function availablePath(files: Record<string, unknown>, path: string): str
   return `${dir}${base}-${count}${ext}`;
 }
 
-export function openReceivedFile(path: string, content: string): string {
-  const { workspace, addFile, save } = useAppStore.getState();
+export function openReceivedFile(path: string, content: string): void {
+  const { workspace, addFile, updateFile, openTab, save } = useAppStore.getState();
   if (!workspace) throw new Error("The editor is still loading");
-  const target = availablePath(workspace.files, path);
-  addFile(target, content);
-  syncMonacoFile(target, content);
-  window.setTimeout(() => syncMonacoFile(target, content), 0);
+  if (workspace.files[path]) {
+    updateFile(path, content);
+    openTab(path);
+  } else {
+    addFile(path, content);
+  }
+  syncMonacoFile(path, content);
+  window.setTimeout(() => syncMonacoFile(path, content), 0);
   void save();
-  return target;
 }

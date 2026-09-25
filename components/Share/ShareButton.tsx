@@ -39,8 +39,17 @@ export function ShareButton() {
     }
     setPending(true);
     try {
-      await sendShare({ username: username.trim(), path: file, content });
-      setNotice(`Sent ${file} to ${username.trim()}.`);
+      const share = await sendShare({ username: username.trim(), path: file, content });
+      const name = username.trim();
+      if (share.phase === "update") {
+        setNotice(`Update sent to ${name}. They can open it in the same file.`);
+      } else if (share.phase === "accepted") {
+        setNotice(`${name} already has this version.`);
+      } else if (share.revision > 1) {
+        setNotice(`Sent the latest ${file} to ${name}.`);
+      } else {
+        setNotice(`Sent ${file} to ${name}.`);
+      }
       setUsername("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not send the file.");
@@ -73,7 +82,7 @@ export function ShareButton() {
             <DialogTitle>Send file</DialogTitle>
             <DialogDescription>
               {signedIn
-                ? `${file || "This file"} is sent to another account. They can open it in their editor.`
+                ? `${file || "This file"} goes to another account. Sending it again updates the copy they already opened.`
                 : "Sign in to send this file to another account."}
             </DialogDescription>
           </DialogHeader>

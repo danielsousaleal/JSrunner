@@ -20,13 +20,16 @@ import {
   warmAccountService,
   type AccountProfile,
 } from "@/lib/account-client";
-import { openReceivedFile } from "@/lib/receive-file";
+import { ShareDiffDialog } from "@/components/Share/ShareDiffDialog";
+import { availablePath, openReceivedFile } from "@/lib/receive-file";
 import {
   acceptShare,
   declineShare,
   listShares,
+  markSharesSeen,
   type CodeShareSummary,
 } from "@/lib/share-client";
+import { useAppStore } from "@/lib/store";
 
 type Mode = "sign-in" | "register" | "forgot";
 
@@ -39,8 +42,13 @@ export function AccountButton() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [pending, setPending] = useState(false);
-  const [shares, setShares] = useState<CodeShareSummary[]>([]);
+  const [incoming, setIncoming] = useState<CodeShareSummary[]>([]);
+  const [sent, setSent] = useState<CodeShareSummary[]>([]);
   const [shareError, setShareError] = useState("");
+  const [review, setReview] = useState<{
+    share: CodeShareSummary;
+    role: "sender" | "recipient";
+  } | null>(null);
 
   useEffect(() => {
     warmAccountService();
@@ -51,14 +59,18 @@ export function AccountButton() {
 
   useEffect(() => {
     if (!profile) {
-      setShares([]);
+      setIncoming([]);
+      setSent([]);
       return;
     }
     let cancelled = false;
     const load = () => {
       void listShares()
         .then((next) => {
-          if (!cancelled) setShares(next);
+          if (!cancelled) {
+            setIncoming(next.incoming);
+            setSent(next.sent);
+          }
         })
         .catch(() => undefined);
     };
@@ -69,6 +81,15 @@ export function AccountButton() {
       window.clearInterval(timer);
     };
   }, [profile]);
+
+  useEffect(() => {
+    if (!open || !sent.some((share) => share.unseen)) return;
+    void markSharesSeen()
+      .then(() => {
+        setSent((current) => current.map((share) => ({ ...share, unseen: false })));
+      })
+      .catch(() => undefined);
+  }, [open, sent]);
 
   const resetForm = () => {
     setError("");
@@ -112,9 +133,14 @@ export function AccountButton() {
     setShareError("");
     setPending(true);
     try {
-      const file = await acceptShare(share.id);
+      const files = useAppStore.getState().workspace?.files ?? {};
+      const target =
+        share.phase === "update" && share.openedPath
+          ? share.openedPath
+          : availablePath(files, share.path);
+      const file = await acceptShare(share.id, share.phase === "update" ? undefined : target);
       openReceivedFile(file.path, file.content);
-      setShares((current) => current.filter((item) => item.id !== share.id));
+      setIncoming((current) => current.filter((item) => item.id !== share.id));
       setOpen(false);
     } catch (caught) {
       setShareError(caught instanceof Error ? caught.message : "Could not open the file.");
@@ -128,7 +154,7 @@ export function AccountButton() {
     setPending(true);
     try {
       await declineShare(share.id);
-      setShares((current) => current.filter((item) => item.id !== share.id));
+      setIncoming((current) => current.filter((item) => item.id !== share.id));
     } catch (caught) {
       setShareError(caught instanceof Error ? caught.message : "Could not decline the file.");
     } finally {
@@ -157,12 +183,12 @@ export function AccountButton() {
       >
         <UserRound className="size-3.5" />
         <span className="truncate">{profile?.username ?? "Sign in"}</span>
-        {shares.length > 0 && (
+        {incoming.length + sent.filter((share) => share.unseen).length > 0 && (
           <span
             className="rounded-full bg-[var(--vscode-blue)] px-1.5 text-[10px] leading-4 text-white"
-            aria-label={`${shares.length} files waiting`}
+            aria-label={`${incoming.length + sent.filter((share) => share.unseen).length} share updates`}
           >
-            {shares.length}
+            {incoming.length + sent.filter((share) => share.unseen).length}
           </span>
         )}
       </Button>
@@ -188,18 +214,18 @@ export function AccountButton() {
             <div className="space-y-3">
               <div className="space-y-2">
                 <p className="text-xs font-medium text-[var(--vscode-fg-muted)]">Incoming files</p>
-                {shares.length === 0 ? (
+                {incoming.length === 0 ? (
                   <p className="text-xs text-[var(--vscode-fg-muted)]">No files waiting.</p>
                 ) : (
                   <div className="max-h-56 space-y-2 overflow-auto">
-                    {shares.map((share) => (
+                    {incoming.map((share) => (
                       <div
                         key={share.id}
                         className="rounded border border-[var(--vscode-border)] p-2"
                       >
                         <p className="truncate text-sm">{share.path}</p>
                         <p className="text-xs text-[var(--vscode-fg-muted)]">
-                          from {share.senderUsername}
+                          {share.phase === "update" ? "Update" : "File"} from {share.senderUsername}
                         </p>
                         {share.preview && (
                           <p className="truncate font-mono text-[11px] text-[var(--vscode-fg-muted)]">
@@ -207,8 +233,12 @@ export function AccountButton() {
                           </p>
                         )}
                         <div className="mt-2 flex gap-2">
-                          <Button size="xs" disabled={pending} onClick={() => void openShare(share)}>
-                            Open
+                          <Button
+                            size="xs"
+                            disabled={pending}
+                            onClick={() => setReview({ share, role: "recipient" })}
+                          >
+                            {share.phase === "update" ? "Review update" : "Review"}
                           </Button>
                           <Button
                             size="xs"
@@ -219,6 +249,30 @@ export function AccountButton() {
                             Decline
                           </Button>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {sent.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-[var(--vscode-fg-muted)]">Sent files</p>
+                    {sent.map((share) => (
+                      <div key={share.id} className="flex items-center gap-2">
+                        <p className="min-w-0 flex-1 truncate text-xs text-[var(--vscode-fg)]">
+                          {share.path} · {share.recipientUsername} ·{" "}
+                          {share.phase === "accepted"
+                            ? "Opened"
+                            : share.phase === "update"
+                              ? "Update waiting"
+                              : "Waiting"}
+                        </p>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() => setReview({ share, role: "sender" })}
+                        >
+                          Diff
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -302,6 +356,32 @@ export function AccountButton() {
           )}
         </DialogContent>
       </Dialog>
+      {review && (
+        <ShareDiffDialog
+          share={review.share}
+          role={review.role}
+          pending={pending}
+          onClose={() => setReview(null)}
+          onAccept={
+            review.role === "recipient"
+              ? () => {
+                  const current = review.share;
+                  setReview(null);
+                  void openShare(current);
+                }
+              : undefined
+          }
+          onDecline={
+            review.role === "recipient"
+              ? () => {
+                  const current = review.share;
+                  setReview(null);
+                  void dismissShare(current);
+                }
+              : undefined
+          }
+        />
+      )}
     </>
   );
 }
