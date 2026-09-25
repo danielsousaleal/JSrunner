@@ -14,6 +14,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { AccountButton } from "@/components/Account/AccountButton";
+import { ShareButton } from "@/components/Share/ShareButton";
 import { CloudButton } from "@/components/Cloud/CloudButton";
 import { SaveButton } from "@/components/Cloud/SaveButton";
 import { SettingsButton } from "@/components/Settings/SettingsDialog";
@@ -59,6 +60,7 @@ export function Header({ onRun, onDownload, onImport }: HeaderProps) {
 
       <div className="flex items-center gap-1">
         <AccountButton />
+        <ShareButton />
         <SaveButton />
         <CloudButton />
         <SettingsButton />
