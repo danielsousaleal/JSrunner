@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { ConsoleEntry } from "@/lib/db";
 import { useAppStore } from "@/lib/store";
+import { JsonViewer } from "./JsonViewer";
 
 const FILTERS = ["all", "log", "error", "warn", "network"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -44,6 +45,7 @@ export function ConsoleOutput() {
   const workspace = useAppStore((s) => s.workspace);
   const clearConsole = useAppStore((s) => s.clearConsole);
   const [filter, setFilter] = useState<Filter>("all");
+  const [view, setView] = useState<"log" | "json">("log");
 
   const entries = workspace?.consoleHistory ?? [];
 
@@ -70,14 +72,25 @@ export function ConsoleOutput() {
         {FILTERS.map((item) => (
           <Button
             key={item}
-            variant={filter === item ? "secondary" : "ghost"}
+            variant={view === "log" && filter === item ? "secondary" : "ghost"}
             size="xs"
             className="h-6 text-[11px] capitalize"
-            onClick={() => setFilter(item)}
+            onClick={() => {
+              setView("log");
+              setFilter(item);
+            }}
           >
             {item}
           </Button>
         ))}
+        <Button
+          variant={view === "json" ? "secondary" : "ghost"}
+          size="xs"
+          className="h-6 text-[11px]"
+          onClick={() => setView("json")}
+        >
+          JSON
+        </Button>
         <div className="ml-auto flex gap-1">
           <Button
             variant="ghost"
@@ -98,6 +111,9 @@ export function ConsoleOutput() {
         </div>
       </div>
 
+      {view === "json" ? (
+        <JsonViewer entries={entries} />
+      ) : (
       <ScrollArea className="min-h-0 flex-1">
         {filtered.length === 0 ? (
           <div className="flex h-full items-center justify-center p-4 text-sm text-[var(--vscode-fg-muted)]">
@@ -129,6 +145,7 @@ export function ConsoleOutput() {
           </div>
         )}
       </ScrollArea>
+      )}
     </div>
   );
 }
