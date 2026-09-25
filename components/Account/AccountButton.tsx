@@ -27,6 +27,7 @@ import {
   declineShare,
   listShares,
   markSharesSeen,
+  replyShare,
   type CodeShareSummary,
 } from "@/lib/share-client";
 import { useAppStore } from "@/lib/store";
@@ -45,10 +46,7 @@ export function AccountButton() {
   const [incoming, setIncoming] = useState<CodeShareSummary[]>([]);
   const [sent, setSent] = useState<CodeShareSummary[]>([]);
   const [shareError, setShareError] = useState("");
-  const [review, setReview] = useState<{
-    share: CodeShareSummary;
-    role: "sender" | "recipient";
-  } | null>(null);
+  const [review, setReview] = useState<CodeShareSummary | null>(null);
 
   useEffect(() => {
     warmAccountService();
@@ -140,10 +138,33 @@ export function AccountButton() {
           : availablePath(files, share.path);
       const file = await acceptShare(share.id, share.phase === "update" ? undefined : target);
       openReceivedFile(file.path, file.content);
-      setIncoming((current) => current.filter((item) => item.id !== share.id));
+      const next = await listShares();
+      setIncoming(next.incoming);
+      setSent(next.sent);
       setOpen(false);
     } catch (caught) {
       setShareError(caught instanceof Error ? caught.message : "Could not open the file.");
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const sendBack = async (share: CodeShareSummary) => {
+    setShareError("");
+    const content = useAppStore.getState().workspace?.files[share.localPath]?.content;
+    if (content === undefined) {
+      setShareError("Open that file in the editor before sending it back.");
+      return;
+    }
+    setPending(true);
+    try {
+      await replyShare(share.id, content);
+      const next = await listShares();
+      setIncoming(next.incoming);
+      setSent(next.sent);
+      setReview(null);
+    } catch (caught) {
+      setShareError(caught instanceof Error ? caught.message : "Could not send the file back.");
     } finally {
       setPending(false);
     }
@@ -225,7 +246,10 @@ export function AccountButton() {
                       >
                         <p className="truncate text-sm">{share.path}</p>
                         <p className="text-xs text-[var(--vscode-fg-muted)]">
-                          {share.phase === "update" ? "Update" : "File"} from {share.senderUsername}
+                          {share.phase === "update" ? "Update" : "File"} from{" "}
+                          {share.senderUsername === profile.username
+                            ? share.recipientUsername
+                            : share.senderUsername}
                         </p>
                         {share.preview && (
                           <p className="truncate font-mono text-[11px] text-[var(--vscode-fg-muted)]">
@@ -234,13 +258,18 @@ export function AccountButton() {
                         )}
                         <div className="mt-2 flex gap-2">
                           <Button
+                            type="button"
                             size="xs"
                             disabled={pending}
-                            onClick={() => setReview({ share, role: "recipient" })}
+                            onClick={() => {
+                              setShareError("");
+                              setReview(share);
+                            }}
                           >
                             {share.phase === "update" ? "Review update" : "Review"}
                           </Button>
                           <Button
+                            type="button"
                             size="xs"
                             variant="outline"
                             disabled={pending}
@@ -255,11 +284,15 @@ export function AccountButton() {
                 )}
                 {sent.length > 0 && (
                   <div className="space-y-1">
-                    <p className="text-xs font-medium text-[var(--vscode-fg-muted)]">Sent files</p>
+                    <p className="text-xs font-medium text-[var(--vscode-fg-muted)]">Shared files</p>
                     {sent.map((share) => (
                       <div key={share.id} className="flex items-center gap-2">
                         <p className="min-w-0 flex-1 truncate text-xs text-[var(--vscode-fg)]">
-                          {share.path} · {share.recipientUsername} ·{" "}
+                          {share.path} ·{" "}
+                          {share.senderUsername === profile.username
+                            ? share.recipientUsername
+                            : share.senderUsername}{" "}
+                          ·{" "}
                           {share.phase === "accepted"
                             ? "Opened"
                             : share.phase === "update"
@@ -267,9 +300,13 @@ export function AccountButton() {
                               : "Waiting"}
                         </p>
                         <Button
+                          type="button"
                           size="xs"
                           variant="outline"
-                          onClick={() => setReview({ share, role: "sender" })}
+                          onClick={() => {
+                            setShareError("");
+                            setReview(share);
+                          }}
                         >
                           Diff
                         </Button>
@@ -358,23 +395,24 @@ export function AccountButton() {
       </Dialog>
       {review && (
         <ShareDiffDialog
-          share={review.share}
-          role={review.role}
+          share={review}
           pending={pending}
+          actionError={shareError}
           onClose={() => setReview(null)}
-          onAccept={
-            review.role === "recipient"
+          onConfirm={
+            review.awaiting
               ? () => {
-                  const current = review.share;
+                  const current = review;
                   setReview(null);
                   void openShare(current);
                 }
               : undefined
           }
+          onSendBack={() => void sendBack(review)}
           onDecline={
-            review.role === "recipient"
+            review.awaiting
               ? () => {
-                  const current = review.share;
+                  const current = review;
                   setReview(null);
                   void dismissShare(current);
                 }

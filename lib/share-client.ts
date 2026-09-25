@@ -14,6 +14,8 @@ export interface CodeShareSummary {
   updatedAt: string;
   preview: string;
   unseen: boolean;
+  awaiting: boolean;
+  localPath: string;
 }
 
 export interface ShareMailbox {
@@ -79,6 +81,16 @@ export async function acceptShare(id: string, openedPath?: string): Promise<Code
   });
   if (!response.ok) throw await readError(response);
   return (await response.json()) as CodeShareFile;
+}
+
+export async function replyShare(id: string, content: string): Promise<CodeShareSummary> {
+  const response = await authorizedAccount(`/api/shares/${id}/reply`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!response.ok) throw await readError(response);
+  return (await response.json()) as CodeShareSummary;
 }
 
 export async function declineShare(id: string): Promise<void> {

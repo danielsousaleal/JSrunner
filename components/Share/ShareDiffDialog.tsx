@@ -17,16 +17,18 @@ import { useAppStore } from "@/lib/store";
 
 export function ShareDiffDialog({
   share,
-  role,
   pending,
-  onAccept,
+  actionError,
+  onConfirm,
+  onSendBack,
   onDecline,
   onClose,
 }: {
   share: CodeShareSummary;
-  role: "sender" | "recipient";
   pending: boolean;
-  onAccept?: () => void;
+  actionError?: string;
+  onConfirm?: () => void;
+  onSendBack?: () => void;
   onDecline?: () => void;
   onClose: () => void;
 }) {
@@ -42,9 +44,8 @@ export function ShareDiffDialog({
       .then((diff) => {
         if (cancelled) return;
         const files = useAppStore.getState().workspace?.files ?? {};
-        const localPath = diff.openedPath ?? diff.path;
-        const local = files[localPath]?.content;
-        setPrevious(role === "recipient" && local !== undefined ? local : diff.previous);
+        const local = files[share.localPath]?.content;
+        setPrevious(share.awaiting && local !== undefined ? local : diff.previous);
         setNext(diff.next);
         setReady(true);
       })
@@ -56,7 +57,7 @@ export function ShareDiffDialog({
     return () => {
       cancelled = true;
     };
-  }, [share.id, role]);
+  }, [share.id, share.localPath, share.awaiting]);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -64,19 +65,20 @@ export function ShareDiffDialog({
         <DialogHeader>
           <DialogTitle>{share.path}</DialogTitle>
           <DialogDescription>
-            {role === "recipient"
-              ? `Review what ${share.senderUsername} changed before opening it.`
-              : `This is what ${share.recipientUsername} will see before opening it.`}
+            {share.awaiting
+              ? `Review what changed. Confirm receipt to open it. Closing leaves the file waiting.`
+              : `Review what changed. Send back uses the copy in your editor and updates this same file.`}
           </DialogDescription>
         </DialogHeader>
-        {error ? (
-          <p className="text-xs text-[var(--console-error)]">{error}</p>
-        ) : (
+        {error || actionError ? (
+          <p className="text-xs text-[var(--console-error)]">{error || actionError}</p>
+        ) : null}
+        {!error && (
           <div className="h-80 overflow-hidden rounded border border-[var(--vscode-border)]">
             {ready && (
               <DiffEditor
                 theme="js-runner-dark"
-                language={getMonacoLanguage(share.openedPath ?? share.path)}
+                language={getMonacoLanguage(share.localPath)}
                 original={previous}
                 modified={next}
                 beforeMount={initMonacoTheme}
@@ -92,17 +94,22 @@ export function ShareDiffDialog({
           </div>
         )}
         <div className="flex justify-end gap-2">
-          <Button variant="outline" size="xs" onClick={onClose}>
+          <Button type="button" variant="outline" size="xs" onClick={onClose}>
             Close
           </Button>
-          {onDecline && (
-            <Button variant="outline" size="xs" disabled={pending || !ready} onClick={onDecline}>
+          {onDecline && share.awaiting && (
+            <Button type="button" variant="outline" size="xs" disabled={pending || !ready} onClick={onDecline}>
               Decline
             </Button>
           )}
-          {onAccept && (
-            <Button size="xs" disabled={pending || !ready} onClick={onAccept}>
-              {share.phase === "update" ? "Update" : "Open"}
+          {onSendBack && (
+            <Button type="button" variant="outline" size="xs" disabled={pending || !ready} onClick={onSendBack}>
+              Send back
+            </Button>
+          )}
+          {onConfirm && share.awaiting && (
+            <Button type="button" size="xs" disabled={pending || !ready} onClick={onConfirm}>
+              Confirm receipt
             </Button>
           )}
         </div>
