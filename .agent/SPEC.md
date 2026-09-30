@@ -115,8 +115,8 @@ interface ConsoleMeta {
 | `.css` | CSS | css | Stylesheet (future) |
 | `.mjs` | ES Module | javascript | QuickJS eval |
 | `.cjs` | CommonJS | javascript | QuickJS eval |
-| `.luau` | Luau | luau | Luau WASM |
-| `.lua` | Luau | luau | Luau WASM |
+| `.luau` | Luau | luau | Luau WASM, plus Vector3, CFrame, Color3, and Folder |
+| `.lua` | Luau | luau | Luau WASM, plus Vector3, CFrame, Color3, and Folder |
 
 ### 3.2 Default Files
 

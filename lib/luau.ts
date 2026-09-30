@@ -5,13 +5,15 @@ export function isLuauPath(path: string): boolean {
 export const LUAU_SAMPLE = `-- Luau, the language Roblox uses.
 -- Run with the play button or Ctrl+Enter.
 -- require("./other") loads another .luau file in this project.
--- game, workspace, and Instance belong to the Roblox engine, not this sandbox.
+-- This sandbox includes Vector3, CFrame, Color3, Folder, and workspace.
+-- Players, physics, and the rest of the Roblox engine are not here.
 
-local function greet(name: string): string
-	return \`Hello, {name}!\`
-end
+local props = Instance.new("Folder")
+props.Name = "Props"
+props.Parent = workspace
 
-print(greet("Luau"))
+local point = Vector3.new(1, 2, 3)
+print(props:GetFullName(), point + Vector3.yAxis)
 `;
 
 export function formatLuauValue(value: unknown, depth = 0): string {

@@ -490,10 +490,12 @@ import { something } from './nonexistent';
 
 `.luau` and `.lua` run in `workers/luau.worker.ts` through `luau-web` (Luau compiled to WASM). JavaScript and TypeScript stay on QuickJS. User code still never runs on the server.
 
-This is the Luau language, the one Roblox scripts are written in. The Roblox engine is not included: `game`, `workspace`, `Instance`, `script.Parent`, and `task` are absent. Types (`local x: number`) are erased at runtime, and `--!strict` is not enforced.
+This is the Luau language, the one Roblox scripts are written in. Types (`local x: number`) are erased at runtime, and `--!strict` is not enforced. The editor offers completion for the sandbox API below. Players, physics, rendering, and `script.Parent` are absent.
 
 ### What the sandbox provides
 
+- `Vector3`, `CFrame`, and `Color3` are available, including arithmetic, `Lerp`, and `CFrame.lookAt` / `CFrame.Angles`. `Vector3.is(value)` (and the same for `CFrame`, `Color3`, and `Instance`) identifies these values. `typeof` still reports `table`.
+- `Instance.new` creates a `Folder` only. `Name`, `Parent`, `ClassName`, `GetChildren`, `FindFirstChild`, `GetFullName`, `IsA`, and `Destroy` work. `workspace` is a `Workspace` parented to `game`. `game:GetService("Workspace")` returns it. Any other service name or class name errors.
 - `print` goes to the console. The runtime captures `console.log` when the WASM module is created, so the worker installs that hook before `LuauState.createAsync()`.
 - `warn` is injected with `env.set`. It is not a Luau builtin.
 - `require("./other")` loads another project file. Candidates are the spec itself when it already ends in `.luau` or `.lua`, otherwise `spec.luau`, `spec.lua`, `spec/init.luau`, and `spec/init.lua`. A path that escapes the project, a missing module, or a circular require is an error.

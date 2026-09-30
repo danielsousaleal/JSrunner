@@ -16,7 +16,7 @@ Monaco Editor is the code editor that powers VS Code. We integrate it to provide
 
 **Decision**: `@monaco-editor/react` + manual worker hosting (not CDN)
 
-`.luau` and `.lua` use the Monarch grammar in `lib/monaco-luau.ts` (language id `luau`). They do not use the TypeScript language service, so types are highlighted and are not checked in the editor.
+`.luau` and `.lua` use the Monarch grammar in `lib/monaco-luau.ts` (language id `luau`). They do not use the TypeScript language service, so types are highlighted and are not checked. Completion and hover cover the sandbox API: `Vector3`, `CFrame`, `Color3`, `Instance`, `game`, and `workspace`.
 
 ---
 

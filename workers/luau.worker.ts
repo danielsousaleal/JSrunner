@@ -9,6 +9,7 @@ import {
   luaString,
   luauModuleGlobal,
 } from "../lib/luau";
+import { installRobloxSandbox } from "../lib/luau-roblox";
 
 let currentRunId: number | undefined;
 let executing = false;
@@ -63,16 +64,17 @@ async function executeCode(message: Extract<WorkerRequest, { type: "execute" }>)
     if (!env) throw new Error("Luau runtime is unavailable");
     env.set(
       "warn",
-      (...args: unknown[]) => {
+      (message: unknown) => {
         post({
           type: "console",
           level: "warn",
-          message: args.map((arg) => formatLuauValue(arg)).join("\t"),
+          message: formatLuauValue(message),
           timestamp: Date.now(),
         });
       },
       true
     );
+    const showValue = await installRobloxSandbox(state);
 
     for (const module of modules) {
       const compiled = state.loadstring(module.source, module.path, true);
@@ -111,9 +113,20 @@ async function executeCode(message: Extract<WorkerRequest, { type: "execute" }>)
     if (!silent && !interruptRequested) {
       const values = Array.isArray(returned) ? returned : [returned];
       const visible = values.filter((value) => value !== undefined);
+      let value = "Execution completed";
+      if (visible.length > 0) {
+        const shown = await Promise.all(visible.map(async (item) => {
+          try {
+            return await showValue(item);
+          } catch {
+            return formatLuauValue(item);
+          }
+        }));
+        value = shown.join("\t");
+      }
       post({
         type: "result",
-        value: visible.length > 0 ? visible.map((value) => formatLuauValue(value)).join("\t") : "Execution completed",
+        value,
         timestamp: Date.now(),
       });
     }

@@ -1,4 +1,5 @@
 import type * as Monaco from "monaco-editor";
+import { registerLuauApi } from "./monaco-luau-api";
 
 let registered = false;
 
@@ -83,6 +84,8 @@ export function registerLuauLanguage(monaco: typeof Monaco) {
       decreaseIndentPattern: /^\s*(end|else|elseif|until)\b/,
     },
   });
+
+  registerLuauApi(monaco);
 
   monaco.languages.setMonarchTokensProvider("luau", {
     defaultToken: "",
