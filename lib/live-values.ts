@@ -17,7 +17,7 @@ export interface LiveCoverage {
 }
 
 export function isExecutablePath(path: string): boolean {
-  return /\.(m?[jt]sx?|cjs)$/.test(path);
+  return /\.(m?[jt]sx?|cjs|luau|lua)$/.test(path);
 }
 
 export function normalizeLivePath(path: string): string {

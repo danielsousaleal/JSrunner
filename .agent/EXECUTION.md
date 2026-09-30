@@ -485,3 +485,28 @@ import { something } from './nonexistent';
   location: { file: 'index.ts', line: 1, column: 25 }
 }
 ```
+
+## Luau
+
+`.luau` and `.lua` run in `workers/luau.worker.ts` through `luau-web` (Luau compiled to WASM). JavaScript and TypeScript stay on QuickJS. User code still never runs on the server.
+
+This is the Luau language, the one Roblox scripts are written in. The Roblox engine is not included: `game`, `workspace`, `Instance`, `script.Parent`, and `task` are absent. Types (`local x: number`) are erased at runtime, and `--!strict` is not enforced.
+
+### What the sandbox provides
+
+- `print` goes to the console. The runtime captures `console.log` when the WASM module is created, so the worker installs that hook before `LuauState.createAsync()`.
+- `warn` is injected with `env.set`. It is not a Luau builtin.
+- `require("./other")` loads another project file. Candidates are the spec itself when it already ends in `.luau` or `.lua`, otherwise `spec.luau`, `spec.lua`, `spec/init.luau`, and `spec/init.lua`. A path that escapes the project, a missing module, or a circular require is an error.
+- The return value of the file is shown as the result. No return value shows `Execution completed`.
+- The same 5 second limit applies. A Luau timeout terminates the worker, because a posted abort cannot interrupt synchronous WASM.
+
+**New Luau file** inserts the sample in `LUAU_SAMPLE`.
+
+### Runtime constraints
+
+- Import `luau-web/src/lib/Luau.Web.Asyncify.js` from `ensureRuntime()` in `lib/luau-engine.ts`. The package entry uses top-level await, which the worker bundle cannot load.
+- The Asyncify build aborts when it sees `WorkerGlobalScope`. `disguiseWorkerAsPage()` hides that global and sets `window` only while the factory runs.
+- Do not call `LuauState.destroy()` while that worker is still in use. `_luauClose` makes every later state in the same WASM instance fail (`Luau did not return a chunk`, then `attempt to call a nil value`). Drop the worker instead. `ExecutionController` replaces it after 16 Luau runs.
+- Webpack bundles the worker only when the source is literally `new Worker(new URL("../workers/luau.worker.ts", import.meta.url))`. A ternary or an intermediate variable emits the raw `.ts` file, and the browser refuses to run it.
+
+Cloud save stores these files with language `"luau"`.

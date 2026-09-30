@@ -32,6 +32,8 @@ const nextConfig: NextConfig = {
         ...config.resolve?.fallback,
         fs: false,
         path: false,
+        module: false,
+        url: false,
       },
     };
 

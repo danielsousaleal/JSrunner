@@ -39,7 +39,7 @@ interface Workspace {
 
 interface File {
   content: string;
-  language: 'javascript' | 'typescript' | 'json' | 'html' | 'css';
+  language: 'javascript' | 'typescript' | 'luau' | 'json' | 'html' | 'css';
   cursor: { line: number; column: number };
   scrollPosition: number;
   dirty: boolean;                // unsaved changes
@@ -115,6 +115,8 @@ interface ConsoleMeta {
 | `.css` | CSS | css | Stylesheet (future) |
 | `.mjs` | ES Module | javascript | QuickJS eval |
 | `.cjs` | CommonJS | javascript | QuickJS eval |
+| `.luau` | Luau | luau | Luau WASM |
+| `.lua` | Luau | luau | Luau WASM |
 
 ### 3.2 Default Files
 
@@ -177,6 +179,8 @@ console.log("Doubled:", doubled);
 
 ### 4.2 Execution Flow
 
+JavaScript and TypeScript:
+
 ```
 1. Collect all files from workspace
 2. Create QuickJS context with options:
@@ -191,8 +195,9 @@ console.log("Doubled:", doubled);
 7. Execute transpiled code
 8. Collect logs and result
 9. Send to main thread
-10. Terminate worker
 ```
+
+Luau (`.luau` / `.lua`) uses `workers/luau.worker.ts` instead of QuickJS. See [EXECUTION.md](EXECUTION.md#luau).
 
 ### 4.3 Transpilation
 
@@ -234,6 +239,8 @@ Resolution rules:
 1. Relative imports (`./utils`, `../lib/helper`)
 2. Absolute imports resolved from workspace root (`@/utils`)
 3. Bare imports resolved via import map (`lodash` → esm.sh)
+
+Luau `require` is separate. It only loads another `.luau` or `.lua` file in the open project (`./other`, `src/greet`, `/lib`). It does not load npm packages.
 
 ### 4.5 Error Handling
 
@@ -469,7 +476,7 @@ function validateImport(data: unknown): data is Workspace {
 
 | Threat | Mitigation |
 |--------|------------|
-| XSS via user code | QuickJS sandbox, no DOM access |
+| XSS via user code | QuickJS or Luau WASM sandbox, no DOM access |
 | Prototype pollution | QuickJS isolated globals |
 | Infinite loops | 5s CPU timeout |
 | Memory exhaustion | 50MB memory limit |

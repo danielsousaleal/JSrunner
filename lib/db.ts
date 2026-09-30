@@ -4,6 +4,7 @@ import { generateId } from "./utils";
 export type Language =
   | "javascript"
   | "typescript"
+  | "luau"
   | "json"
   | "html"
   | "css";
@@ -139,6 +140,9 @@ export function getLanguageFromPath(path: string): Language {
       return "html";
     case "css":
       return "css";
+    case "luau":
+    case "lua":
+      return "luau";
     default:
       return "javascript";
   }
@@ -161,6 +165,9 @@ export function getMonacoLanguage(path: string): string {
       return "html";
     case "css":
       return "css";
+    case "luau":
+    case "lua":
+      return "luau";
     default:
       return "javascript";
   }

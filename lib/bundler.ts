@@ -1,5 +1,6 @@
 import * as ts from "typescript";
 import { mergeImportMaps } from "./importmap";
+import { isLuauPath } from "./luau";
 import { isExecutablePath } from "./live-values";
 import { createQuokkaTransformer } from "./quokka-instrument";
 
@@ -11,6 +12,7 @@ export function transpileTypeScript(
   fileName: string,
   live = false
 ): string {
+  if (isLuauPath(fileName)) return code;
   const ext = fileName.split(".").pop()?.toLowerCase();
   const isTs = ext === "ts" || ext === "tsx";
   if (!isTs && !live) return code;

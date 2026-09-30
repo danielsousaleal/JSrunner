@@ -34,8 +34,8 @@ cd js-runner
 # Editor
 npm install @monaco-editor/react monaco-editor
 
-# Execution Engine (QuickJS WASM)
-npm install quickjs-emscripten-core @jitl/quickjs-ng-wasmfile-release-sync
+# Execution Engine (QuickJS WASM and Luau)
+npm install quickjs-emscripten-core @jitl/quickjs-ng-wasmfile-release-sync luau-web
 
 # State & Persistence
 npm install zustand idb

@@ -45,6 +45,7 @@
 │  │  • import.meta.resolve → resolves via import map                    │    │
 │  │  • __filename, __dirname, require, module, exports                  │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
+│  `.luau` / `.lua` use a second worker (`workers/luau.worker.ts`) instead.   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -56,6 +57,7 @@
 | **Editor** | @monaco-editor/react | 4.x | VS Code editor in browser |
 | **TypeScript** | monaco-editor-core | 0.51.x | TS language service (worker) |
 | **Execution** | @jitl/quickjs-ng-wasmfile-release-sync | 0.25.x | Secure JS/TS sandbox |
+| **Luau** | luau-web | 1.4.x | Luau sandbox for `.luau` / `.lua` |
 | **Worker** | quickjs-emscripten-core | 0.25.x | WASM runtime binding |
 | **State** | Zustand | 4.x | Lightweight state management |
 | **Persistence** | idb | 8.x | IndexedDB wrapper |

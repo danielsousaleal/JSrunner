@@ -10,6 +10,7 @@ import { exportWorkspace } from "@/lib/export";
 import { importWorkspaceFromFile } from "@/lib/import";
 import { buildImportMapScript } from "@/lib/importmap";
 import { isExecutablePath } from "@/lib/live-values";
+import { isLuauPath } from "@/lib/luau";
 import { useAppStore } from "@/lib/store";
 
 export function IDEPage() {
@@ -54,7 +55,7 @@ export function IDEPage() {
 
       if (!silent) setRunning(true);
       if (silent) clearConsole();
-      if (!live) clearLiveResults();
+      if (!live || isLuauPath(workspace.activeFile)) clearLiveResults();
 
       const files: Record<string, string> = {};
       for (const [path, file] of Object.entries(workspace.files)) {

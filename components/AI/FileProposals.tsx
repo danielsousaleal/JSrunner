@@ -3,13 +3,10 @@
 import { DiffEditor } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import type { FileProposal } from "@/lib/agent-tools";
+import { getMonacoLanguage } from "@/lib/db";
 
 function languageFor(path: string): string {
-  if (path.endsWith(".json")) return "json";
-  if (path.endsWith(".html")) return "html";
-  if (path.endsWith(".css")) return "css";
-  if (path.endsWith(".js") || path.endsWith(".mjs")) return "javascript";
-  return "typescript";
+  return getMonacoLanguage(path);
 }
 
 export function FileProposals({

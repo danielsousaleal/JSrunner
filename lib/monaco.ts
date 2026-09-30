@@ -1,5 +1,6 @@
 import { loader } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
+import { registerLuauLanguage } from "./monaco-luau";
 
 let configured = false;
 
@@ -117,6 +118,7 @@ export function defineDarkTheme(monaco: typeof Monaco) {
 
 export function initMonacoTheme(monaco: typeof Monaco) {
   configureTypeScript(monaco);
+  registerLuauLanguage(monaco);
   defineDarkTheme(monaco);
   monaco.editor.setTheme("js-runner-dark");
 }

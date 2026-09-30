@@ -26,6 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { isLuauPath, LUAU_SAMPLE } from "@/lib/luau";
 import { searchPackages } from "@/lib/packages";
 import { useAppStore } from "@/lib/store";
 
@@ -149,6 +150,20 @@ export function FileTree() {
         >
           <Plus className="size-3.5" />
           New File
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-full justify-start text-xs"
+          onClick={() => {
+            const name = prompt("New Luau file name:", "main.luau");
+            if (!name?.trim()) return;
+            const path = name.trim();
+            addFile(isLuauPath(path) ? path : `${path}.luau`, LUAU_SAMPLE);
+          }}
+        >
+          <FileCode className="size-3.5" />
+          New Luau file
         </Button>
         <Button
           variant="ghost"
